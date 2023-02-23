@@ -241,6 +241,26 @@ describe("IOU", function () {
             await iou.issue(otherAccount.address, amount, nonce, expiry, signature);
         });
 
+        it("fail: Should not issue an IOU without a badge", async function () {
+            const { iou, owner, otherAccount } = await loadFixture(deployIOUFixture);
+
+            const amount = 100;
+            const nonce = 0;
+
+            const minutes = 5;
+            const duration = 60 * minutes;
+            const expiry = Math.floor(Date.now() / 1000) + duration;
+
+            const message = ethers.utils.solidityKeccak256(
+                ["address", "address", "uint256", "uint256", "uint256"],
+                [iou.address, otherAccount.address, amount, nonce, expiry]
+            );
+
+            const signature = await otherAccount.signMessage(ethers.utils.arrayify(message));
+
+            await expect(iou.connect(otherAccount).issue(otherAccount.address, amount, nonce, expiry, signature)).to.be.revertedWith("IOU: Missing Badge that grants access to mint.");
+        });
+
         it("fail: Should not issue an IOU with an invalid nonce", async function () {
             const { iou, otherAccount } = await loadFixture(deployIOUFixture);
 
