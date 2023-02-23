@@ -24,7 +24,8 @@ interface IIOU {
     /// @dev Emitted when the signer is updated.
     event DestinationUpdated(
         string indexed destinationChain,
-        string indexed destinationAddress
+        string indexed destinationAddress,
+        uint256 destinationDecimals
     );
 
     ////////////////////////////////////////////////////////

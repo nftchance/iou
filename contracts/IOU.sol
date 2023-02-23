@@ -33,6 +33,9 @@ contract IOU is IIOU, ERC20 {
     /// @dev The receipt that was used to deploy this IOU.
     string public destinationAddress;
 
+    /// @dev The amount of decimals the destination token uses.
+    uint256 public destinationDecimals;
+
     /// @dev The nonces used when minting.
     mapping(address => uint256) public nonces;
 
@@ -47,10 +50,20 @@ contract IOU is IIOU, ERC20 {
         factory = IOUFactory(msg.sender);
 
         /// @dev Get the destination chain and address.
-        (, , destinationChain, destinationAddress) = factory.receipt();
+        (
+            ,
+            ,
+            destinationChain,
+            destinationAddress,
+            destinationDecimals
+        ) = factory.receipt();
 
         /// @dev Emit the event.
-        emit DestinationUpdated(destinationChain, destinationAddress);
+        emit DestinationUpdated(
+            destinationChain,
+            destinationAddress,
+            destinationDecimals
+        );
     }
 
     ////////////////////////////////////////////////////////
@@ -93,19 +106,28 @@ contract IOU is IIOU, ERC20 {
         bytes calldata _signature
     ) external onlyBadgeHolder {
         /// @dev Confirm the user has not already used the nonce.
-        require(nonces[_to] == _nonce++, "IOU: invalid nonce.");
+        require(nonces[_to] == _nonce, "IOU: invalid nonce.");
 
         /// @dev Confirm the signature has not expired.
         require(block.timestamp <= _expiry, "IOU: signature expired.");
 
+        /// @dev Build the message that would have been signed.
+        bytes32 message = keccak256(
+            abi.encodePacked(address(this), _to, _amount, _nonce, _expiry)
+        );
+
         /// @dev Confirm the user has a valid signature to mint the requested
         ///      amount to the requested address.
         require(
-            keccak256(
-                abi.encodePacked(address(this), _to, _amount, _nonce, _expiry)
-            ).toEthSignedMessageHash().recover(_signature) == factory.signer(),
+            message.toEthSignedMessageHash().recover(_signature) ==
+                factory.signer(),
             "IOU: invalid signature"
         );
+
+        unchecked {
+            /// @dev Increment the nonce.
+            nonces[_to]++;
+        }
 
         /// @dev Mint the tokens.
         _mint(_to, _amount);
@@ -126,5 +148,16 @@ contract IOU is IIOU, ERC20 {
      */
     function burn(uint256 _amount) external {
         _burn(msg.sender, _amount);
+    }
+
+    ////////////////////////////////////////////////////////
+    ///                     GETTERS                      ///
+    ////////////////////////////////////////////////////////
+
+    /**
+     * See {ERC20-decimals}.
+     */
+    function decimals() public view virtual override returns (uint8) {
+        return uint8(destinationDecimals);
     }
 }

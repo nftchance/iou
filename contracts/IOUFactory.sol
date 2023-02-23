@@ -48,6 +48,42 @@ contract IOUFactory is IIOUFactory, Ownable {
     address public lastDeployer;
 
     ////////////////////////////////////////////////////////
+    ///                   CONSTRUCTOR                    ///
+    ////////////////////////////////////////////////////////
+
+    constructor(
+        address _signer,
+        address _vault,
+        Badge memory _badge
+    ) {
+        /// @dev Set the signer.
+        _setSigner(_signer);
+
+        /// @dev Set the vault.
+        _setVault(_vault);
+
+        /// @dev Set the Badge.
+        _setBadge(_badge);
+    }
+
+    ////////////////////////////////////////////////////////
+    ///                     MODIFIERS                     ///
+    ////////////////////////////////////////////////////////
+
+    /**
+     * @dev Modifier to confirm the user has the badge.
+     */
+    modifier onlyBadgeHolder() {
+        /// @dev Confirm the user has the badge.
+        require(
+            badge.token.balanceOf(msg.sender, badge.id) >= badge.amount,
+            "IOU: Missing Badge that grants access to mint."
+        );
+
+        _;
+    }
+
+    ////////////////////////////////////////////////////////
     ///                     SETTERS                      ///
     ////////////////////////////////////////////////////////
 
@@ -56,10 +92,8 @@ contract IOUFactory is IIOUFactory, Ownable {
      * @param _signer The address of the signer.
      */
     function setSigner(address _signer) external onlyOwner {
-        signer = _signer;
-
-        /// @dev Emit an event to signal the change of the signer.
-        emit SignerUpdated(_signer);
+        /// @dev Set the signer.
+        _setSigner(_signer);
     }
 
     /**
@@ -67,22 +101,17 @@ contract IOUFactory is IIOUFactory, Ownable {
      * @param _vault The address of the vault.
      */
     function setVault(address _vault) external onlyOwner {
-        vault = _vault;
-
-        /// @dev Emit an event to signal the change of the vault.
-        emit VaultUpdated(_vault);
+        /// @dev Set the vault.
+        _setVault(_vault);
     }
 
     /**
      * @dev Set the Badge.
      * @param _badge The address of the Badge.
      */
-    function setBadge(Badge calldata _badge) external onlyOwner {
+    function setBadge(Badge memory _badge) external onlyOwner {
         /// @dev Set the Badge.
-        badge = _badge;
-
-        /// @dev Emit an event to signal the change of the Badge.
-        emit BadgeUpdated(_badge);
+        _setBadge(_badge);
     }
 
     /**
@@ -94,6 +123,7 @@ contract IOUFactory is IIOUFactory, Ownable {
     function createIOU(Receipt calldata _receipt)
         public
         virtual
+        onlyBadgeHolder
         returns (IOU iou, uint256 iouId)
     {
         /// @dev Increment the id.
@@ -151,5 +181,36 @@ contract IOUFactory is IIOUFactory, Ownable {
      */
     function symbol() external view returns (string memory) {
         return receipt.symbol;
+    }
+
+    ////////////////////////////////////////////////////////
+    ///                 INTERNAL SETTERS                 ///
+    ////////////////////////////////////////////////////////
+
+    function _setSigner(address _signer) internal {
+        signer = _signer;
+
+        /// @dev Emit an event to signal the change of the signer.
+        emit SignerUpdated(_signer);
+    }
+
+    function _setVault(address _vault) internal {
+        vault = _vault;
+
+        /// @dev Emit an event to signal the change of the vault.
+        emit VaultUpdated(_vault);
+    }
+
+    function _setBadge(Badge memory _badge) internal {
+        require(
+            IERC165(_badge.token).supportsInterface(type(IERC1155).interfaceId),
+            "IOU: Badge token does not support IERC1155."
+        );
+
+        /// @dev Set the Badge.
+        badge = _badge;
+
+        /// @dev Emit an event to signal the change of the Badge.
+        emit BadgeUpdated(_badge);
     }
 }

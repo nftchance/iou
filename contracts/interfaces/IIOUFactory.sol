@@ -24,6 +24,7 @@ interface IIOUFactory {
         string symbol;
         string destinationChain;
         string destinationAddress;
+        uint256 destinationDecimals;
     }
 
     ////////////////////////////////////////////////////////
