@@ -23,6 +23,9 @@ describe("IOU", function () {
 
         const { mockBadge } = await loadFixture(deployMockBadgeFixture);
 
+        const Implementation = await ethers.getContractFactory("IOU");
+        const implementation = await Implementation.deploy();
+
         await mockBadge.mint(owner.address, 0, 1);
 
         const creationBadge = {
@@ -31,7 +34,7 @@ describe("IOU", function () {
             amount: 1
         }
 
-        const factory = await Factory.deploy(otherAccount.address, vaultAccount.address, creationBadge);
+        const factory = await Factory.deploy(implementation.address, otherAccount.address, vaultAccount.address, creationBadge);
 
         return { factory, mockBadge, owner, otherAccount, vaultAccount };
     }
@@ -178,6 +181,9 @@ describe("IOU", function () {
             expect(event.event).to.equal("IOUCreated");
 
             const iouAddress = event.args[0];
+
+            expect(await factory.getIOU(0)).to.equal(iouAddress);
+
             const iou = await ethers.getContractAt("IOU", iouAddress);
             expect(iou.address).to.equal(iouAddress);
 
@@ -195,6 +201,10 @@ describe("IOU", function () {
 
             const iouId = event.args[2];
             expect(iouId).to.equal(0);
+
+            // deploy another iou
+            const tx2 = await factory.createIOU(iouReceipt);
+            const receipt2 = await tx2.wait();
         });
 
         it("fail: Should not have permission to create an IOU", async function () {

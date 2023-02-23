@@ -7,7 +7,7 @@ import {IOUFactory} from "./IOUFactory.sol";
 
 /// @dev Core dependencies.
 import {IIOU} from "./interfaces/IIOU.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 
 /// @dev Libraries.
@@ -17,7 +17,7 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
  * @dev Single instance implementation of IOU supporting transaction
  *      with assets to be distributed on another chain.
  */
-contract IOU is IIOU, ERC20 {
+contract IOU is IIOU, ERC20Upgradeable {
     using ECDSA for bytes32;
 
     ////////////////////////////////////////////////////////
@@ -25,7 +25,7 @@ contract IOU is IIOU, ERC20 {
     ////////////////////////////////////////////////////////
 
     /// @dev The managing factory that deployed this IOU.
-    IOUFactory public immutable factory;
+    IOUFactory public factory;
 
     /// @dev The receipt that was used to deploy this IOU.
     string public destinationChain;
@@ -43,20 +43,20 @@ contract IOU is IIOU, ERC20 {
     ///                   CONSTRUCTOR                    ///
     ////////////////////////////////////////////////////////
 
-    constructor()
-        ERC20(IOUFactory(msg.sender).name(), IOUFactory(msg.sender).symbol())
+    function initialize(IOUFactory.Receipt calldata _receipt)
+        external
+        initializer
     {
         /// @dev Save the reference to the factory.
         factory = IOUFactory(msg.sender);
 
-        /// @dev Get the destination chain and address.
-        (
-            ,
-            ,
-            destinationChain,
-            destinationAddress,
-            destinationDecimals
-        ) = factory.receipt();
+        /// @dev Initialize the ERC20.
+        __ERC20_init(_receipt.name, _receipt.symbol);
+
+        /// @dev Update the destination.
+        destinationChain = _receipt.destinationChain;
+        destinationAddress = _receipt.destinationAddress;
+        destinationDecimals = _receipt.destinationDecimals;
 
         /// @dev Emit the event.
         emit DestinationUpdated(

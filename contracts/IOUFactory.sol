@@ -7,6 +7,7 @@ import {IOU} from "./IOU.sol";
 
 /// @dev Core dependencies.
 import {IIOUFactory} from "./interfaces/IIOUFactory.sol";
+import {IIOU} from "./interfaces/IIOU.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @dev Helper dependencies.
@@ -14,19 +15,21 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
 /// @dev Libraries.
-import {Bytes32AddressLib} from "solmate/src/utils/Bytes32AddressLib.sol";
+import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
 /**
  * @dev Factory contract that deploys IOUs for assets held on another chain
  *      on top of a trusted party distribution mechanism.
  */
 contract IOUFactory is IIOUFactory, Ownable {
-    using Bytes32AddressLib for address;
-    using Bytes32AddressLib for bytes32;
+    using Clones for address;
 
     ////////////////////////////////////////////////////////
     ///                      STATE                       ///
     ////////////////////////////////////////////////////////
+
+    /// @dev The address of the IOU implementation.
+    address public immutable implementation;
 
     /// @dev Keeping track of the signer providing the valid signature
     ///      that confirms the IOU is valid.
@@ -44,18 +47,19 @@ contract IOUFactory is IIOUFactory, Ownable {
     /// @dev Hotslot for the receipt last deployed.
     Receipt public receipt;
 
-    /// @dev Hotslot for the last address that deployed an IOU.
-    address public lastDeployer;
-
     ////////////////////////////////////////////////////////
     ///                   CONSTRUCTOR                    ///
     ////////////////////////////////////////////////////////
 
     constructor(
+        address _implementation,
         address _signer,
         address _vault,
         Badge memory _badge
     ) {
+        /// @dev Set the implementation.
+        implementation = _implementation;
+
         /// @dev Set the signer.
         _setSigner(_signer);
 
@@ -131,14 +135,16 @@ contract IOUFactory is IIOUFactory, Ownable {
             iouId = ious++;
         }
 
-        /// @dev Save the IOU into the hotslot.
-        receipt = _receipt;
+        /// @dev CLone the contract using the iouID as salt.
+        address iouAddress = implementation.cloneDeterministic(
+            keccak256(abi.encodePacked(iouId))
+        );
 
-        /// @dev Save the deployer into the hotslot.
-        lastDeployer = msg.sender;
+        /// @dev Interface with the new contract.
+        iou = IOU(iouAddress);
 
-        /// @dev Deploy the new IOU contract.
-        iou = new IOU{salt: bytes32(iouId)}();
+        /// @dev Initialize the IOU.
+        iou.initialize(_receipt);
 
         /// @dev Emit an event to signal the creation of the IOU.
         emit IOUCreated(iou, msg.sender, iouId);
@@ -147,27 +153,6 @@ contract IOUFactory is IIOUFactory, Ownable {
     ////////////////////////////////////////////////////////
     ///                     GETTERS                      ///
     ////////////////////////////////////////////////////////
-
-    /**
-     * @dev Get the IOU address given a specific id.
-     * @param _iouId The id of the IOU.
-     * @return iou The address of the IOU.
-     */
-    function getIOU(uint256 _iouId) external view returns (IOU iou) {
-        return
-            IOU(
-                payable(
-                    keccak256(
-                        abi.encodePacked(
-                            bytes1(0xff),
-                            address(this),
-                            bytes32(_iouId),
-                            keccak256(abi.encodePacked(type(IOU).creationCode))
-                        )
-                    ).fromLast20Bytes()
-                )
-            );
-    }
 
     /**
      * @dev Get the value of name set in the hotslot.
@@ -212,5 +197,20 @@ contract IOUFactory is IIOUFactory, Ownable {
 
         /// @dev Emit an event to signal the change of the Badge.
         emit BadgeUpdated(_badge);
+    }
+
+    /**
+     * @dev Get the address of an IOU.
+     * @param _iouId The id of the IOU.
+     */
+    function getIOU(uint256 _iouId) external view returns (IOU) {
+        /// @dev Get the address of the IOU if it exists.
+        return
+            IOU(
+                implementation.predictDeterministicAddress(
+                    keccak256(abi.encodePacked(_iouId)),
+                    address(this)
+                )
+            );
     }
 }
