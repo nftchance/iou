@@ -95,6 +95,33 @@ describe("IOU", function () {
             expect(vault).to.equal(otherAccount.address);
         });
 
+        it("fail: Should not have permission to set signer", async function () {
+            const { factory, otherAccount } = await loadFixture(deployFactoryFixture);
+
+            await expect(factory.connect(otherAccount).setSigner(otherAccount.address)).to.be.revertedWith("Ownable: caller is not the owner");
+        });
+
+        it("Should set the right Vault", async function () {
+            const { factory, otherAccount } = await loadFixture(deployFactoryFixture);
+
+            const tx = await factory.setVault(otherAccount.address);
+            const receipt = await tx.wait();
+
+            const event = receipt.events[receipt.events.length - 1];
+
+            expect(event.event).to.equal("VaultUpdated");
+
+            const vault = await factory.callStatic.vault();
+
+            expect(vault).to.equal(otherAccount.address);
+        });
+
+        it("fail: Should not have permission to set Vault", async function () {
+            const { factory, otherAccount } = await loadFixture(deployFactoryFixture);
+
+            await expect(factory.connect(otherAccount).setVault(otherAccount.address)).to.be.revertedWith("Ownable: caller is not the owner");
+        });
+
         it("Should set the right Badge", async function () {
             const { factory, mockBadge } = await loadFixture(deployFactoryFixture);
 
@@ -111,11 +138,23 @@ describe("IOU", function () {
 
             expect(event.event).to.equal("BadgeUpdated");
 
-            const badgeFromFactory = await factory.callStatic.badge();
+            const { token, id, balance } = await factory.callStatic.badge();
 
-            expect(badgeFromFactory.token).to.equal(badge.token);
-            expect(badgeFromFactory.id).to.equal(badge.id);
-            expect(badgeFromFactory.balance).to.equal(badge.balance);
+            expect(token).to.equal(badge.token);
+            expect(id).to.equal(badge.id);
+            expect(balance).to.equal(badge.balance);
+        });
+
+        it("fail: Should not have permission to set Badge", async function () {
+            const { factory, mockBadge, otherAccount } = await loadFixture(deployFactoryFixture);
+
+            const badge = {
+                token: mockBadge.address,
+                id: 0,
+                amount: 2
+            }
+
+            await expect(factory.connect(otherAccount).setBadge(badge)).to.be.revertedWith("Ownable: caller is not the owner");
         });
     });
 
@@ -158,6 +197,20 @@ describe("IOU", function () {
             expect(iouId).to.equal(0);
         });
 
+        it("fail: Should not have permission to create an IOU", async function () {
+            const { factory, otherAccount } = await loadFixture(deployFactoryFixture);
+
+            const iouReceipt = {
+                name: "Test",
+                symbol: "Test",
+                destinationChain: "Flow",
+                destinationAddress: "0x1234",
+                destinationDecimals: 12
+            }
+
+            await expect(factory.connect(otherAccount).createIOU(iouReceipt)).to.be.revertedWith("IOU: Missing Badge that grants access to mint.");
+        });
+
         it("Should issue an IOU", async function () {
             const { iou, owner, otherAccount } = await loadFixture(deployIOUFixture);
 
@@ -176,6 +229,67 @@ describe("IOU", function () {
             const signature = await otherAccount.signMessage(ethers.utils.arrayify(message));
 
             await iou.issue(otherAccount.address, amount, nonce, expiry, signature);
+        });
+
+        it("fail: Should not issue an IOU with an invalid nonce", async function () {
+            const { iou, otherAccount } = await loadFixture(deployIOUFixture);
+
+            const amount = 100;
+            const nonce = 1;
+
+            const minutes = 5;
+            const duration = 60 * minutes;
+            const expiry = Math.floor(Date.now() / 1000) + duration;
+
+            const message = ethers.utils.solidityKeccak256(
+                ["address", "address", "uint256", "uint256", "uint256"],
+                [iou.address, otherAccount.address, amount, nonce, expiry]
+            );
+
+            const signature = await otherAccount.signMessage(ethers.utils.arrayify(message));
+
+            await expect(iou.issue(otherAccount.address, amount, nonce, expiry, signature)).to.be.revertedWith("IOU: Invalid nonce.");
+        });
+
+        it("fail: Should not issue an IOU with an invalid expiry", async function () {
+            const { iou, otherAccount } = await loadFixture(deployIOUFixture);
+
+            const amount = 100;
+            const nonce = 0;
+
+            const minutes = 5;
+            const duration = 60 * minutes;
+            const expiry = Math.floor(Date.now() / 1000) - duration;
+
+            const message = ethers.utils.solidityKeccak256(
+                ["address", "address", "uint256", "uint256", "uint256"],
+                [iou.address, otherAccount.address, amount, nonce, expiry]
+            );
+
+            const signature = await otherAccount.signMessage(ethers.utils.arrayify(message));
+
+            await expect(iou.issue(otherAccount.address, amount, nonce, expiry, signature)).to.be.revertedWith("IOU: Signature expired.");
+        });
+
+
+        it("fail: Should not issue an IOU with an invalid signature", async function () {
+            const { iou, owner, otherAccount } = await loadFixture(deployIOUFixture);
+
+            const amount = 100;
+            const nonce = 0;
+
+            const minutes = 5;
+            const duration = 60 * minutes;
+            const expiry = Math.floor(Date.now() / 1000) + duration;
+
+            const message = ethers.utils.solidityKeccak256(
+                ["address", "address", "uint256", "uint256", "uint256"],
+                [iou.address, otherAccount.address, amount, nonce, expiry]
+            );
+
+            const signature = await owner.signMessage(ethers.utils.arrayify(message));
+
+            await expect(iou.issue(otherAccount.address, amount, nonce, expiry, signature)).to.be.revertedWith("IOU: Invalid signature.");
         });
 
         it("Should redeem an IOU", async function () {

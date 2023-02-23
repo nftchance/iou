@@ -106,10 +106,10 @@ contract IOU is IIOU, ERC20 {
         bytes calldata _signature
     ) external onlyBadgeHolder {
         /// @dev Confirm the user has not already used the nonce.
-        require(nonces[_to] == _nonce, "IOU: invalid nonce.");
+        require(nonces[_to] == _nonce, "IOU: Invalid nonce.");
 
         /// @dev Confirm the signature has not expired.
-        require(block.timestamp <= _expiry, "IOU: signature expired.");
+        require(block.timestamp <= _expiry, "IOU: Signature expired.");
 
         /// @dev Build the message that would have been signed.
         bytes32 message = keccak256(
@@ -121,7 +121,7 @@ contract IOU is IIOU, ERC20 {
         require(
             message.toEthSignedMessageHash().recover(_signature) ==
                 factory.signer(),
-            "IOU: invalid signature"
+            "IOU: Invalid signature."
         );
 
         unchecked {
