@@ -39,7 +39,7 @@ task("deploy", "Deploys the protocol")
         const chainId = await getChainId()
 
         const MockToken = await ethers.getContractFactory("MockBadge");
-        const mockToken = await MockToken.deploy();
+        let mockToken = await MockToken.deploy();
         mockToken = await mockToken.deployed();
 
         console.log("✅ MockBadge deployed.")
@@ -49,32 +49,32 @@ task("deploy", "Deploys the protocol")
 
         console.log("✅ MockBadge tokens minted.")
 
-        mockDeployment = {
+        const mockDeployment = {
             "Chain ID": chainId,
             "Deployer": deployer.address,
-            "Organization Implementation Address": mockToken.address,
+            "MockBadge Address": mockToken.address,
             "Remaining ETH Balance": parseInt((await deployer.getBalance()).toString()) / 1000000000000000000,
         }
 
         console.table(mockDeployment)
 
         const IOU = await ethers.getContractFactory("IOU");
-        const iou = await IOU.deploy();
+        let iou = await IOU.deploy();
         iou = await iou.deployed();
 
         console.log("✅ Implementation singleton deployed.")
 
-        singletonDeployment = {
+        const singletonDeployment = {
             "Chain ID": chainId,
             "Deployer": deployer.address,
-            "Organization Implementation Address": iou.address,
+            "Singleton Address": iou.address,
             "Remaining ETH Balance": parseInt((await deployer.getBalance()).toString()) / 1000000000000000000,
         }
 
         console.table(singletonDeployment)
 
         const singletonAddress = iou.address;
-        const signerAddress = "0x0"
+        const signerAddress = "0x0EbA1e746B647e186C3EA198867d00870fdcAbf0"
 
         const creationBadge = {
             token: mockToken.address,
@@ -82,21 +82,38 @@ task("deploy", "Deploys the protocol")
             amount: 1
         }
 
-        iouFactory = await IOUFactory.deploy(singletonAddress, signerAddress, creationBadge);
+        const IOUFactory = await ethers.getContractFactory("IOUFactory");
+        let iouFactory = await IOUFactory.deploy(singletonAddress, signerAddress, creationBadge);
         iouFactory = await iouFactory.deployed();
 
         console.log("✅ IOUFactory deployed.")
 
-        factoryDeployment = {
+        const factoryDeployment = {
             "Chain ID": chainId,
             "Deployer": deployer.address,
-            "Organization Implementation Address": iouFactory.address,
+            "IOUFactory Address": iouFactory.address,
             "Remaining ETH Balance": parseInt((await deployer.getBalance()).toString()) / 1000000000000000000,
         }
         console.table(factoryDeployment)
 
         // Verifying
         if (taskArgs.verify !== false && chainId != '31337') {
+            await new Promise(r => setTimeout(r, 30000));
+            await hre.run("verify:verify", {
+                address: mockToken.address,
+                constructorArguments: [],
+            });
+
+            console.log("✅ IOUFactory Verified.")
+
+            await new Promise(r => setTimeout(r, 30000));
+            await hre.run("verify:verify", {
+                address: iou.address,
+                constructorArguments: [],
+            });
+
+            console.log("✅ IOUFactory Verified.")
+
             // Give time for etherscan to confirm the contract before verifying.
             await new Promise(r => setTimeout(r, 30000));
             await hre.run("verify:verify", {
@@ -144,7 +161,8 @@ module.exports = {
         polygon: {
             url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}`,
             accounts: [`0x${process.env.PRIVATE_KEY}`],
-            gasPrice: 'auto'
+            gas: 'auto',
+            gasPrice: 200000000000,
         },
     },
     abiExporter: {
