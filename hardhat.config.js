@@ -42,8 +42,6 @@ task("deploy", "Deploys the protocol")
         let mockToken = await MockToken.deploy();
         mockToken = await mockToken.deployed();
 
-        console.log("✅ MockBadge deployed.")
-
         await mockToken.mint(deployer.address, 0, 20);
         await mockToken.mint("0x3e2E6134F72ba1Fbb48fD5a840B11de9698E7B6D", 0, 20);
 
@@ -82,8 +80,10 @@ task("deploy", "Deploys the protocol")
             amount: 1
         }
 
+        const vaultAddress = "0x8D572a89Ca4C939CDfB43F224A233c9E35e08c9C"
+
         const IOUFactory = await ethers.getContractFactory("IOUFactory");
-        let iouFactory = await IOUFactory.deploy(singletonAddress, signerAddress, creationBadge);
+        let iouFactory = await IOUFactory.deploy(singletonAddress, signerAddress, vaultAddress, creationBadge);
         iouFactory = await iouFactory.deployed();
 
         console.log("✅ IOUFactory deployed.")
@@ -98,34 +98,47 @@ task("deploy", "Deploys the protocol")
 
         // Verifying
         if (taskArgs.verify !== false && chainId != '31337') {
-            await new Promise(r => setTimeout(r, 30000));
-            await hre.run("verify:verify", {
-                address: mockToken.address,
-                constructorArguments: [],
-            });
-
-            console.log("✅ IOUFactory Verified.")
-
-            await new Promise(r => setTimeout(r, 30000));
-            await hre.run("verify:verify", {
-                address: iou.address,
-                constructorArguments: [],
-            });
-
-            console.log("✅ IOUFactory Verified.")
-
             // Give time for etherscan to confirm the contract before verifying.
             await new Promise(r => setTimeout(r, 30000));
-            await hre.run("verify:verify", {
-                address: iouFactory.address,
-                constructorArguments: [
-                    singletonAddress,
-                    signerAddress,
-                    creationBadge
-                ],
-            });
+            try {
+                await hre.run("verify:verify", {
+                    address: iouFactory.address,
+                    constructorArguments: [
+                        singletonAddress,
+                        signerAddress,
+                        vaultAddress,
+                        creationBadge
+                    ],
+                });
+            } catch (e) {
+                console.log(e)
+            }
 
             console.log("✅ IOUFactory Verified.")
+
+            await new Promise(r => setTimeout(r, 30000));
+            try {
+                await hre.run("verify:verify", {
+                    address: iou.address,
+                    constructorArguments: [],
+                });
+            } catch (e) {
+                console.log(e)
+            }
+
+            console.log("✅ IOU Verified.")
+
+            await new Promise(r => setTimeout(r, 30000));
+            try {
+                await hre.run("verify:verify", {
+                    address: mockToken.address,
+                    constructorArguments: [],
+                });
+            } catch (e) {
+                console.log(e)
+            }
+
+            console.log("✅ Mock Badge Verified.")
         }
     });
 
@@ -161,8 +174,7 @@ module.exports = {
         polygon: {
             url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}`,
             accounts: [`0x${process.env.PRIVATE_KEY}`],
-            gas: 'auto',
-            gasPrice: 200000000000,
+            gasPrice: 200000000000 // 100 gwei
         },
     },
     abiExporter: {
