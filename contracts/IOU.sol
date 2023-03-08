@@ -43,10 +43,13 @@ contract IOU is IIOU, ERC20Upgradeable {
     ///                   CONSTRUCTOR                    ///
     ////////////////////////////////////////////////////////
 
-    function initialize(IOUFactory.Receipt calldata _receipt)
-        external
-        initializer
-    {
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
+        IOUFactory.Receipt calldata _receipt
+    ) external initializer {
         /// @dev Save the reference to the factory.
         factory = IOUFactory(msg.sender);
 

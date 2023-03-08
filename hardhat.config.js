@@ -1,6 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("@nomiclabs/hardhat-etherscan");
 require("hardhat-abi-exporter");
+require('hardhat-deploy');
 
 require("dotenv").config();
 
@@ -12,6 +13,20 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
     }
 });
 
+task("mint", "Mints a badge to an address")
+    .addParam("badgeAddress", "The address of the badge to mint")
+    .addParam("address", "The address to mint to")
+    .addParam("id", "The id of the badge to mint")
+    .addParam("amount", "The amount of the badge to mint")
+    .setAction(async (taskArgs, hre) => {
+        const MockToken = await ethers.getContractFactory("MockBadge");
+
+        const mockToken = MockToken.attach(taskArgs.badgeAddress);
+
+        await mockToken.mint(taskArgs.address, taskArgs.id, taskArgs.amount);
+
+        console.log(`✅ Minted ${taskArgs.amount} of badge ${taskArgs.id} to ${taskArgs.address}`)
+    });
 
 task("deploy", "Deploys the protocol")
     .addFlag("verify", "Verify the deployed contracts on Etherscan")
@@ -23,18 +38,53 @@ task("deploy", "Deploys the protocol")
 
         const chainId = await getChainId()
 
-        const IOUFactory = await ethers.getContractFactory("IOUFactory");
+        const MockToken = await ethers.getContractFactory("MockBadge");
+        const mockToken = await MockToken.deploy();
+        mockToken = await mockToken.deployed();
 
-        const badgeAddress = "0x0"
+        console.log("✅ MockBadge deployed.")
+
+        await mockToken.mint(deployer.address, 0, 20);
+        await mockToken.mint("0x3e2E6134F72ba1Fbb48fD5a840B11de9698E7B6D", 0, 20);
+
+        console.log("✅ MockBadge tokens minted.")
+
+        mockDeployment = {
+            "Chain ID": chainId,
+            "Deployer": deployer.address,
+            "Organization Implementation Address": mockToken.address,
+            "Remaining ETH Balance": parseInt((await deployer.getBalance()).toString()) / 1000000000000000000,
+        }
+
+        console.table(mockDeployment)
+
+        const IOU = await ethers.getContractFactory("IOU");
+        const iou = await IOU.deploy();
+        iou = await iou.deployed();
+
+        console.log("✅ Implementation singleton deployed.")
+
+        singletonDeployment = {
+            "Chain ID": chainId,
+            "Deployer": deployer.address,
+            "Organization Implementation Address": iou.address,
+            "Remaining ETH Balance": parseInt((await deployer.getBalance()).toString()) / 1000000000000000000,
+        }
+
+        console.table(singletonDeployment)
+
+        const singletonAddress = iou.address;
+        const signerAddress = "0x0"
 
         const creationBadge = {
-            token: badgeAddress,
+            token: mockToken.address,
             id: 0,
             amount: 1
         }
 
-        iouFactory = await IOUFactory.deploy(deployer.address, signerAddress, creationBadge);
+        iouFactory = await IOUFactory.deploy(singletonAddress, signerAddress, creationBadge);
         iouFactory = await iouFactory.deployed();
+
         console.log("✅ IOUFactory deployed.")
 
         factoryDeployment = {
@@ -52,7 +102,7 @@ task("deploy", "Deploys the protocol")
             await hre.run("verify:verify", {
                 address: iouFactory.address,
                 constructorArguments: [
-                    deployer.address,
+                    singletonAddress,
                     signerAddress,
                     creationBadge
                 ],
