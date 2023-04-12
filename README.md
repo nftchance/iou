@@ -38,4 +38,8 @@ To deploy the project to a live network, first configure your `.env` based on `e
 npx hardhat deploy --network polygon
 ```
 
-## 
+Test contracts can be found at:
+
+- Mock Badge: 0x971Bc5dC6eF18CfBf6BA965b60f0586cf685EE2B
+- IOU Singleton: 0x70b2AFb21E83f301e19b6F67b66c9970F812B749
+- IOU Factory: 0xB13AAF6ca73D1c7ACEF1ecBD6EDF36DB26eec8C7
