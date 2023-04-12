@@ -94,12 +94,7 @@ contract IOU is IIOU, ERC20Upgradeable {
     ////////////////////////////////////////////////////////
 
     /**
-     * @dev Mint the specified amount of tokens to the specified address.
-     * @param _to The address to mint the tokens to.
-     * @param _amount The amount of tokens to mint.
-     * @param _nonce The nonce used to mint the tokens.
-     * @param _expiry The expiry of the signature.
-     * @param _signature The signature used to mint the tokens.
+     * See {IIOU-issue}.
      */
     function issue(
         address _to,
@@ -137,17 +132,41 @@ contract IOU is IIOU, ERC20Upgradeable {
     }
 
     /**
-     * @dev Redeem the specified amount of tokens.
-     * @param _amount The amount of tokens to redeem.
+     * See {IIOU-redeem}.
      */
-    function redeem(uint256 _amount) external {
+    function redeem(
+        address _marketplaceAddress,
+        uint256 _participationId,
+        string memory _participationType,
+        uint256 _amount,
+        bytes calldata _signature
+    ) external {
+        /// @dev Build the message that would have been signed.
+        bytes32 message = keccak256(
+            abi.encodePacked(
+                address(this),
+                _marketplaceAddress,
+                tx.origin,
+                _participationId,
+                _participationType,
+                _amount
+            )
+        );
+
+        /// @dev Confirm the user has a valid signature to mint the requested
+        ///      amount to the requested address.
+        require(
+            message.toEthSignedMessageHash().recover(_signature) ==
+                factory.signer(),
+            "IOU: Invalid signature."
+        );
+
         /// @dev Transfer the token to the IOU vault.
         _transfer(msg.sender, factory.vault(), _amount);
     }
 
     /**
-     * @dev Burn the specified amount of tokens.
-     * @param _amount The amount of tokens to burn.
+     * See {IIOU-burn}.
      */
     function burn(uint256 _amount) external {
         _burn(msg.sender, _amount);

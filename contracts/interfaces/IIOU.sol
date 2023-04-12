@@ -32,7 +32,14 @@ interface IIOU {
     ///                     SETTER                       ///
     ////////////////////////////////////////////////////////
 
-    /// @dev Issue the token.
+    /**
+     * @dev Mint the specified amount of tokens to the specified address.
+     * @param _to The address to mint the tokens to.
+     * @param _amount The amount of tokens to mint.
+     * @param _nonce The nonce used to mint the tokens.
+     * @param _expiry The expiry of the signature.
+     * @param _signature The signature used to mint the tokens.
+     */
     function issue(
         address _to,
         uint256 _amount,
@@ -41,9 +48,25 @@ interface IIOU {
         bytes calldata _signature
     ) external;
 
-    /// @dev Redeem the token.
-    function redeem(uint256 amount) external;
+    /**
+     * @dev Redeem the specified amount of tokens.
+     * @param _marketplaceAddress The address of the marketplace.
+     * @param _participationId The ID of the participation.
+     * @param _participationType The type of the participation.
+     * @param _amount The amount of tokens to redeem.
+     * @param _signature The signature used to redeem the tokens.
+     */
+    function redeem(
+        address _marketplaceAddress,
+        uint256 _participationId,
+        string memory _participationType,
+        uint256 _amount,
+        bytes calldata _signature
+    ) external;
 
-    /// @dev Burn the token.
-    function burn(uint256 amount) external;
+    /**
+     * @dev Burn the specified amount of tokens.
+     * @param _amount The amount of tokens to burn.
+     */
+    function burn(uint256 _amount) external;
 }
