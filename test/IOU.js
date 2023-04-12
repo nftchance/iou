@@ -341,7 +341,27 @@ describe("IOU", function () {
 
             await iou.issue(otherAccount.address, amount, nonce, expiry, signature);
 
-            await iou.connect(otherAccount).redeem(amount);
+            const iouAddress = iou.address;
+            const marketplaceAddress = ethers.constants.AddressZero;
+            const txOrigin = otherAccount.address;
+            const participationId = 1
+            const participationType = "submission"
+            const redeemAmount = amount;
+
+            const redeemMessage = ethers.utils.solidityKeccak256(
+                ["address", "address", "address", "uint256", "string", "uint256"],
+                [iouAddress, marketplaceAddress, txOrigin, participationId, participationType, redeemAmount]
+            )
+
+            const redeemSignature = await otherAccount.signMessage(ethers.utils.arrayify(redeemMessage));
+
+            await iou.connect(otherAccount).redeem(
+                marketplaceAddress,
+                participationId,
+                participationType,
+                redeemAmount,
+                redeemSignature
+            );
         });
 
         it("Should burn an IOU", async function () {
