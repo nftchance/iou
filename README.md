@@ -41,5 +41,5 @@ npx hardhat deploy --network polygon
 Test contracts can be found at:
 
 - Mock Badge: 0x971Bc5dC6eF18CfBf6BA965b60f0586cf685EE2B
-- IOU Singleton: 0x70b2AFb21E83f301e19b6F67b66c9970F812B749
-- IOU Factory: 0xB13AAF6ca73D1c7ACEF1ecBD6EDF36DB26eec8C7
+- IOU Singleton: 0x63c7641068A0843E7d359ca2d5B88d991a08fFB2
+- IOU Factory: 0x47E38e585EbBBEC57F4FfeF222fb73B1E3A524bC
