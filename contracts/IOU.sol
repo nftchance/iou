@@ -162,7 +162,7 @@ contract IOU is IIOU, ERC20Upgradeable {
         );
 
         /// @dev Transfer the token to the IOU vault.
-        _transfer(msg.sender, factory.vault(), _amount);
+        _transfer(tx.origin, factory.vault(), _amount);
     }
 
     /**
